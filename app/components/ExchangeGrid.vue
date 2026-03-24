@@ -739,7 +739,6 @@ const handleConnect = async () => {
     passphrase: form.value.passphrase || undefined,
   };
 
-  console.log(payload);
 
   let location = "Unknown";
   try {
